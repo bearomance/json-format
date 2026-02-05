@@ -288,8 +288,8 @@ function tryParsePythonDict(input) {
           continue;
         } else if (nextChar === '"' && stringChar === "'") {
           // \" in single-quoted string - this is literal backslash + quote
-          // In JSON we need: \\\"
-          result += '\\\\"';
+          // In JSON we need: \\\" (escaped backslash + escaped quote)
+          result += '\\\\\\"';
           i += 2;
           continue;
         } else if (nextChar === '\\') {
