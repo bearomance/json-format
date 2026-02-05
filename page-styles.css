@@ -269,6 +269,30 @@ body {
   font-weight: bold;
 }
 
+/* Invalid JSON highlighting (Python dict format) */
+.json-key-invalid {
+  color: #b8860b;
+  font-weight: 500;
+}
+
+.json-string-invalid {
+  color: #b8860b;
+}
+
+/* Error position highlighting */
+.json-error-char {
+  background-color: #ff4444;
+  color: white;
+  padding: 1px 2px;
+  border-radius: 2px;
+  font-weight: bold;
+}
+
+.json-error-rest {
+  color: #cc0000;
+  opacity: 0.7;
+}
+
 /* Collapse functionality styles */
 .json-line {
   position: relative;

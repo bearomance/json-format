@@ -98,6 +98,9 @@ function parseJSON() {
   // This must be done before removing invalid characters, otherwise leading quotes will be incorrectly removed
   input = tryParseJsonString(input);
 
+  // Try to convert Python dict format (single quotes) to JSON format
+  input = tryParsePythonDict(input);
+
   // Auto remove leading invalid characters, find the first { or [
   if (input.charAt(0) !== '{' && input.charAt(0) !== '[') {
     const firstBraceIndex = input.indexOf('{');
@@ -166,9 +169,8 @@ function parseJSON() {
     bindCollapseEvents();
 
   } catch (error) {
-    // Show error message
-    showError(error.message);
-    outputText.textContent = '';
+    // Try to show the text with error highlighting
+    showErrorWithHighlight(input, error);
   }
 }
 
@@ -212,6 +214,117 @@ function tryParseJsonString(input) {
   }
 
   return input;
+}
+
+// Try to convert Python dict format to JSON format
+function tryParsePythonDict(input) {
+  // Check if it looks like Python dict (contains single quotes)
+  if (!input.includes("'")) {
+    return input;
+  }
+
+  try {
+    // First try to parse as-is (might already be valid JSON)
+    JSON.parse(input);
+    return input;
+  } catch (e) {
+    // Not valid JSON, try to convert from Python format
+  }
+
+  // Convert single quotes to double quotes using a state machine
+  let result = '';
+  let inString = false;
+  let stringChar = null;
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+    const nextChar = i < input.length - 1 ? input[i + 1] : '';
+    const prevResultChar = result.length > 0 ? result[result.length - 1] : '';
+
+    if (!inString) {
+      if (char === "'" || char === '"') {
+        inString = true;
+        stringChar = char;
+        result += '"';  // Always use double quotes
+      } else if (char === 'T' && input.substr(i, 4) === 'True') {
+        const before = i > 0 ? input[i - 1] : ' ';
+        const after = input[i + 4] || ' ';
+        if (!/[a-zA-Z0-9_]/.test(before) && !/[a-zA-Z0-9_]/.test(after)) {
+          result += 'true';
+          i += 4;
+          continue;
+        }
+        result += char;
+      } else if (char === 'F' && input.substr(i, 5) === 'False') {
+        const before = i > 0 ? input[i - 1] : ' ';
+        const after = input[i + 5] || ' ';
+        if (!/[a-zA-Z0-9_]/.test(before) && !/[a-zA-Z0-9_]/.test(after)) {
+          result += 'false';
+          i += 5;
+          continue;
+        }
+        result += char;
+      } else if (char === 'N' && input.substr(i, 4) === 'None') {
+        const before = i > 0 ? input[i - 1] : ' ';
+        const after = input[i + 4] || ' ';
+        if (!/[a-zA-Z0-9_]/.test(before) && !/[a-zA-Z0-9_]/.test(after)) {
+          result += 'null';
+          i += 4;
+          continue;
+        }
+        result += char;
+      } else {
+        result += char;
+      }
+    } else {
+      // Inside a string
+      if (char === '\\') {
+        // Handle escape sequences
+        if (nextChar === stringChar) {
+          // Escaped quote: \' or \"
+          result += (stringChar === "'") ? '"' : '\\"';
+          i += 2;
+          continue;
+        } else if (nextChar === '"' && stringChar === "'") {
+          // \" in single-quoted string - this is literal backslash + quote
+          // In JSON we need: \\\"
+          result += '\\\\"';
+          i += 2;
+          continue;
+        } else if (nextChar === '\\') {
+          // Escaped backslash
+          result += '\\\\';
+          i += 2;
+          continue;
+        } else {
+          // Other escape sequences (\n, \t, etc.) - keep as-is
+          result += char;
+        }
+      } else if (char === stringChar) {
+        // End of string (unescaped quote)
+        inString = false;
+        stringChar = null;
+        result += '"';
+      } else if (char === '"' && stringChar === "'") {
+        // Unescaped double quote inside single-quoted string needs escaping for JSON
+        result += '\\"';
+      } else {
+        result += char;
+      }
+    }
+    i++;
+  }
+
+  // Try to validate, but return converted result anyway (for error highlighting)
+  try {
+    JSON.parse(result);
+  } catch (e) {
+    // Conversion produced invalid JSON, but still return it
+    // so error highlighting can show where the problem is
+  }
+
+  return result;
 }
 
 // Recursively parse nested JSON strings
@@ -408,6 +521,118 @@ function showError(message) {
 // Hide error message
 function hideError() {
   errorMsg.classList.remove('show');
+}
+
+// Show error with highlighted position in the text
+function showErrorWithHighlight(input, error) {
+  // Try to extract error position from error message
+  let errorPos = -1;
+  const posMatch = error.message.match(/position\s+(\d+)/i);
+  if (posMatch) {
+    errorPos = parseInt(posMatch[1]);
+  }
+
+  // Format with error marker inserted at the right position
+  let formatted = formatInvalidJsonWithError(input, errorPos);
+
+  // Escape HTML
+  let html = formatted
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Replace error markers with HTML
+  html = html.replace(/\x00ERROR_START\x00(.)\x00ERROR_END\x00/g,
+    '<span class="json-error-char">$1</span>');
+  html = html.replace(/\x00ERROR_REST_START\x00/g,
+    '<span class="json-error-rest">');
+  html = html.replace(/\x00ERROR_REST_END\x00/g, '</span>');
+
+  // Apply basic syntax highlighting (avoid matching inside error spans)
+  html = html.replace(/("(?:[^"\\]|\\.)*")\s*:/g, '<span class="json-key">$1</span>:');
+  html = html.replace(/:(\s*)("(?:[^"\\]|\\.)*")/g, ':$1<span class="json-string">$2</span>');
+  html = html.replace(/('(?:[^'\\]|\\.)*')\s*:/g, '<span class="json-key-invalid">$1</span>:');
+  html = html.replace(/:(\s*)('(?:[^'\\]|\\.)*')/g, ':$1<span class="json-string-invalid">$2</span>');
+
+  // Wrap in lines
+  const lines = html.split('\n');
+  let result = lines.map((line, i) =>
+    `<div class="json-line" data-line="${i}">${line || '&nbsp;'}</div>`
+  ).join('');
+
+  outputText.innerHTML = result;
+  showError(error.message);
+}
+
+// Format invalid JSON with error position markers
+function formatInvalidJsonWithError(input, errorPos) {
+  let result = '';
+  let indent = 0;
+  let inString = false;
+  let stringChar = null;
+  let errorInserted = false;
+  let afterError = false;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    const prevChar = i > 0 ? input[i - 1] : '';
+
+    // Insert error marker at error position
+    if (i === errorPos && errorPos >= 0) {
+      result += '\x00ERROR_START\x00' + char + '\x00ERROR_END\x00';
+      result += '\x00ERROR_REST_START\x00';
+      errorInserted = true;
+      afterError = true;
+
+      // Still need to handle string state
+      if (!inString && (char === '"' || char === "'")) {
+        inString = true;
+        stringChar = char;
+      } else if (inString && char === stringChar && prevChar !== '\\') {
+        inString = false;
+        stringChar = null;
+      }
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '"' || char === "'") {
+        inString = true;
+        stringChar = char;
+        result += char;
+      } else if (char === '{' || char === '[') {
+        indent++;
+        result += char + '\n' + '  '.repeat(indent);
+      } else if (char === '}' || char === ']') {
+        indent = Math.max(0, indent - 1);
+        result += '\n' + '  '.repeat(indent) + char;
+      } else if (char === ',') {
+        result += char + '\n' + '  '.repeat(indent);
+      } else if (char === ':') {
+        result += ': ';
+      } else if (char !== ' ' && char !== '\n' && char !== '\r' && char !== '\t') {
+        result += char;
+      } else if (result.length > 0) {
+        const lastChar = result[result.length - 1];
+        if (lastChar !== ' ' && lastChar !== '\n' && char === ' ') {
+          result += char;
+        }
+      }
+    } else {
+      result += char;
+      if (char === stringChar && prevChar !== '\\') {
+        inString = false;
+        stringChar = null;
+      }
+    }
+  }
+
+  // Close error rest span if it was opened
+  if (afterError) {
+    result += '\x00ERROR_REST_END\x00';
+  }
+
+  return result;
 }
 
 // Show copy success toast
