@@ -50,12 +50,14 @@ copyBtn.addEventListener('click', () => {
 // Compact button
 compactBtn.addEventListener('click', () => {
   isCompact = true;
+  outputText.innerHTML = '';  // Clear output to force fresh render
   parseJSON();
 });
 
-// Format button
+// Format button (expand)
 formatBtn.addEventListener('click', () => {
   isCompact = false;
+  outputText.innerHTML = '';  // Clear output to force fresh render
   parseJSON();
 });
 
