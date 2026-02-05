@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON格式化工具</title>
+  <link rel="stylesheet" href="page-styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>JSON格式化工具</h1>
+    </div>
+
+    <div class="content">
+      <!-- Left input area -->
+      <div class="panel input-panel" id="leftPanel">
+        <div class="panel-header">
+          <h2>输入文本</h2>
+          <button id="clearBtn" class="btn btn-secondary">清空</button>
+        </div>
+        <textarea
+          id="inputText"
+          placeholder="在此输入JSON文本或普通文本...&#10;&#10;示例：&#10;{&#10;  &quot;name&quot;: &quot;张三&quot;,&#10;  &quot;age&quot;: 25&#10;}"
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+      <!-- Resizer -->
+      <div class="resizer" id="resizer"></div>
+
+      <!-- Right output area -->
+      <div class="panel output-panel" id="rightPanel">
+        <div class="panel-header">
+          <h2>格式化结果</h2>
+          <div class="header-controls">
+            <div class="search-box">
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="搜索..."
+                class="search-input"
+              />
+              <span id="searchCount" class="search-count"></span>
+              <button id="searchPrev" class="search-nav-btn" title="上一个">↑</button>
+              <button id="searchNext" class="search-nav-btn" title="下一个">↓</button>
+            </div>
+            <div class="button-group">
+              <button id="copyBtn" class="btn btn-primary">复制</button>
+              <button id="compactBtn" class="btn btn-secondary">压缩</button>
+              <button id="formatBtn" class="btn btn-secondary">格式化</button>
+            </div>
+          </div>
+        </div>
+        <pre id="outputText" class="output-content"></pre>
+        <div id="errorMsg" class="error-message"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="page-script.js"></script>
+</body>
+</html>
