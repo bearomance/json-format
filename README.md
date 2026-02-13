@@ -35,7 +35,3 @@ A Chrome extension for parsing and formatting JSON text.
 3. Formatted result appears automatically in the right panel
 4. Use buttons to copy, compress, or format the output
 5. Use the search box to find specific text in the output
-
-## TODO
-
-- Support Python dict format (single quotes to double quotes conversion)一起
